@@ -7,6 +7,7 @@ type TokenList struct {
 	List []*Token
 }
 
+// GetWords returns word list
 func (list *TokenList) GetWords() []string {
 	words := make([]string, len(list.List))
 	for i, t := range list.List {
@@ -15,7 +16,7 @@ func (list *TokenList) GetWords() []string {
 	return words
 }
 
-// Token is token
+// Token is tokenized word
 type Token struct {
 	tokenizer.Token
 	pos string

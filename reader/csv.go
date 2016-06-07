@@ -53,6 +53,11 @@ func (r *Reader) Close() {
 	r.fp.Close()
 }
 
+// GetPosition returns position(read line number)
+func (r *Reader) GetPosition() int {
+	return r.position
+}
+
 // reader is interface of actual reads line from files
 type reader interface {
 	Read() ([]string, error)

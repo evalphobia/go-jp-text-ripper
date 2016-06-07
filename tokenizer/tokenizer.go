@@ -6,7 +6,7 @@ import (
 	"github.com/ikawaha/kagome/tokenizer"
 )
 
-// Tokenizer tokenize text
+// Tokenizer is struct for tokenize text
 type Tokenizer struct {
 	t        tokenizer.Tokenizer
 	replacer *strings.Replacer
@@ -20,6 +20,7 @@ func New() *Tokenizer {
 	}
 }
 
+// SetDictinary sets new dictinary for tokenize
 func (t *Tokenizer) SetDictinary(path string) error {
 	dic, err := tokenizer.NewDic(path)
 	if err != nil {
@@ -30,6 +31,7 @@ func (t *Tokenizer) SetDictinary(path string) error {
 	return nil
 }
 
+// Tokenize separates text into tokens(words) and return the list
 func (t *Tokenizer) Tokenize(text string) *TokenList {
 	tokens := t.t.Tokenize(t.prefilter(text))
 
@@ -53,12 +55,17 @@ func (t *Tokenizer) Tokenize(text string) *TokenList {
 	return list
 }
 
+// prefilter preprocesses text before tokenize
 func (t *Tokenizer) prefilter(text string) string {
 	return t.replacer.Replace(text)
 }
 
+// newReplacer returns strings.Replacer to remove unwanted symbols
 func newReplacer() *strings.Replacer {
 	return strings.NewReplacer("↵", " ",
+		`\t`, " ",
+		`\n`, " ",
 		"\t", " ",
+		`"`, " ",
 		"\n", " ")
 }

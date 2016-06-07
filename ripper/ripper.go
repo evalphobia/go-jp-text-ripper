@@ -85,12 +85,18 @@ func (r *Ripper) SetDictionary(path string) error {
 	return r.tok.SetDictinary(path)
 }
 
+// GetCurrentPosition return current pos
+func (r *Ripper) GetCurrentPosition() int {
+	return r.r.GetPosition()
+}
+
 // Close closes opened files
 func (r *Ripper) Close() {
 	r.r.Close()
 	r.w.Close()
 }
 
+// ReadHeader reads header columns and check target column is existed or not
 func (r *Ripper) ReadHeader(col string) error {
 	header, err := r.r.Read()
 	if err != nil {
@@ -112,6 +118,7 @@ func (r *Ripper) ReadHeader(col string) error {
 	return nil
 }
 
+// WriteHeader writes header columns
 func (r *Ripper) WriteHeader() error {
 	// read header if not read yet
 	if len(r.inputHeader) == 0 {
@@ -137,11 +144,13 @@ func (r *Ripper) WriteHeader() error {
 	return r.w.Write(r.outputHeader)
 }
 
+// WriteHeaderWithReplace writes header columns and set as targe column is replaced
 func (r *Ripper) WriteHeaderWithReplace() error {
 	r.replaceColumn = true
 	return r.WriteHeader()
 }
 
+// ReadAndWriteLines process each lines, read data, tokenize, and write it.
 func (r *Ripper) ReadAndWriteLines() error {
 	idx := r.columnIndex
 	tok := r.tok

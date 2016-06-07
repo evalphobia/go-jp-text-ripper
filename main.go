@@ -3,19 +3,21 @@ package main
 import (
 	"flag"
 	"fmt"
+	"time"
 
 	"github.com/evalphobia/go-jp-text-ripper/ripper"
 )
 
 // flags
 var (
-	input   = ""
-	output  = ""
-	column  = ""
-	dic     = ""
-	replace = false
-	show    = false
-	debug   = false
+	input    = ""
+	output   = ""
+	column   = ""
+	dic      = ""
+	replace  = false
+	show     = false
+	debug    = false
+	progress = 30
 )
 
 // cli entry point
@@ -68,6 +70,16 @@ func main() {
 		return
 	}
 
+	go func() {
+		tick := time.Tick(time.Duration(progress) * time.Second)
+		for {
+			select {
+			case <-tick:
+				fmt.Printf("[%s] line: %d\n", time.Now().Format("2006-01-02 15:04:05"), r.GetCurrentPosition())
+			}
+		}
+	}()
+
 	fmt.Println("read and write lines...")
 	err = r.ReadAndWriteLines()
 	if err != nil {
@@ -95,6 +107,7 @@ func parseFlags() error {
 	flag.BoolVar(&replace, "replace", false, "replace text column")
 	flag.BoolVar(&show, "show", false, "print separated words to console")
 	flag.BoolVar(&debug, "debug", false, "print debug result to console")
+	flag.IntVar(&progress, "progress", 30, "print current progress (sec)")
 
 	flag.Parse()
 	return nil
