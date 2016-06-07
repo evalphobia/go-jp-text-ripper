@@ -30,8 +30,9 @@ $ cat ./result.tsv
 - `-replace`: replace result
     - `false`: output result into added new column `sep_text`
     - `true`: output result into column `-column`
-- `-show`: output separated words
-- `-debug`: output word details
+- `-show`: print separated words on console
+- `-debug`: print word details on console
+- `-progress`: print current progress on console (default=30)
 
 # License
 
