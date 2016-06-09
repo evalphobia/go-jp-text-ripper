@@ -8,10 +8,10 @@ func newDummyWriter() writer {
 type dummyWriter struct{}
 
 // Write is dummy method
-func (_ *dummyWriter) Write(s []string) error {
+func (*dummyWriter) Write(s []string) error {
 	return nil
 }
 
 // Flush is dummy method
-func (_ *dummyWriter) Flush() {
+func (*dummyWriter) Flush() {
 }

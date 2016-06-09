@@ -5,11 +5,18 @@ import (
 	"io"
 	"strconv"
 	"strings"
+	"unicode/utf8"
 
+	"github.com/evalphobia/go-jp-text-ripper/normalizer"
 	"github.com/evalphobia/go-jp-text-ripper/reader"
 	"github.com/evalphobia/go-jp-text-ripper/tokenizer"
 	"github.com/evalphobia/go-jp-text-ripper/writer"
 )
+
+const defaultPrefix = "op_"
+
+// Prefix is output column prefix to add
+var Prefix = defaultPrefix
 
 // Ripper is struct for putting spaces between words
 type Ripper struct {
@@ -23,6 +30,12 @@ type Ripper struct {
 	replaceColumn bool
 
 	tok *tokenizer.Tokenizer
+	nom *normalizer.Normalizer
+
+	plugins []*Plugin
+
+	quoteCols []string
+	quoteIdx  []int
 
 	ShowResult bool
 	ShowDebug  bool
@@ -33,6 +46,7 @@ func New(col string) *Ripper {
 	return &Ripper{
 		columnName: col,
 		tok:        tokenizer.New(),
+		nom:        normalizer.Default,
 	}
 }
 
@@ -82,7 +96,26 @@ func (r *Ripper) SetWriterFromFile(path string) error {
 
 // SetDictionary sets dictinary
 func (r *Ripper) SetDictionary(path string) error {
-	return r.tok.SetDictinary(path)
+	return r.tok.SetDictionary(path)
+}
+
+// SetQuoteColumns sets normalizer
+func (r *Ripper) SetQuoteColumns(cols []string) {
+	c := make([]string, len(cols))
+	for i, col := range cols {
+		c[i] = strings.TrimSpace(col)
+	}
+	r.quoteCols = c
+}
+
+// SetNormalizer sets normalizer
+func (r *Ripper) SetNormalizer(n *normalizer.Normalizer) {
+	r.nom = n
+}
+
+// AddPlugin adds plugin
+func (r *Ripper) AddPlugin(p *Plugin) {
+	r.plugins = append(r.plugins, p)
 }
 
 // GetCurrentPosition return current pos
@@ -109,6 +142,12 @@ func (r *Ripper) ReadHeader(col string) error {
 			r.columnIndex = idx
 			hasColumn = true
 		}
+		for _, q := range r.quoteCols {
+			if val == q {
+				r.quoteIdx = append(r.quoteIdx, idx)
+				break
+			}
+		}
 	}
 	if !hasColumn {
 		return fmt.Errorf("cannnot find column name in header: %s", col)
@@ -134,9 +173,18 @@ func (r *Ripper) WriteHeader() error {
 	opHeader := make([]string, headerLen, headerLen+3)
 	copy(opHeader, inHeader)
 
-	extraHeaders := []string{"op_word_count", "raw_char_count"}
+	// extra header name
+	colText := Prefix + "text"
+	colWordCount := Prefix + "word_count"
+	colCharCount := Prefix + "raw_char_count"
+
 	if !r.replaceColumn {
-		extraHeaders = append([]string{"sep_text"}, extraHeaders...)
+		opHeader = append(opHeader, colText)
+	}
+
+	extraHeaders := []string{colWordCount, colCharCount}
+	for _, p := range r.plugins {
+		extraHeaders = append(extraHeaders, p.Title)
 	}
 	r.outputHeader = append(opHeader, extraHeaders...)
 
@@ -165,48 +213,68 @@ func (r *Ripper) ReadAndWriteLines() error {
 		}
 
 		// tokenize text
-		text := line[idx]
-		tokens := tok.Tokenize(text)
+		rawText := line[idx]
+		normalizedText := r.nom.Normalize(rawText)
+		tokens := tok.Tokenize(normalizedText)
 		if err != nil {
 			return err
 		}
 
 		if r.ShowDebug {
-			showDebug(text, tokens)
+			showDebug(rawText, normalizedText, tokens)
 		}
 
+		// create result line
 		words := tokens.GetWords()
 		wordCount := strconv.Itoa(len(words))
-		textLen := strconv.Itoa(len(text))
-
+		textLen := strconv.Itoa(utf8.RuneCountInString(rawText))
 		wordLine := strings.Join(words, " ")
 		if r.ShowResult {
 			fmt.Println(wordLine)
 		}
 
-		// create new line
-		var result []string
+		var results []string
 		if r.replaceColumn {
 			line[idx] = wordLine
-			result = append(line, wordCount, textLen)
 		} else {
-			result = append(line, wordLine, wordCount, textLen)
+			results = append(results, wordLine)
+		}
+		results = append(results, wordCount, textLen)
+
+		// apply plugins
+		for _, p := range r.plugins {
+			pluginCount := p.Fn(rawText, normalizedText, tokens)
+			results = append(results, pluginCount)
+			if r.ShowDebug {
+				fmt.Printf("%s: %s\n", p.Title, pluginCount)
+			}
 		}
 
-		err = r.w.Write(result)
+		// quoting
+		for _, i := range r.quoteIdx {
+			line[i] = `"` + line[i] + `"`
+		}
+
+		// write result line
+		results = append(line, results...)
+		err = r.w.Write(results)
 		if err != nil {
 			return err
 		}
 	}
 }
 
-func showDebug(text string, list *tokenizer.TokenList) {
+func showDebug(raw, nom string, list *tokenizer.TokenList) {
 	const sep = "==============================\n"
+	const sepMin = "------\n"
 	fmt.Printf(sep)
-	fmt.Printf("%s\n\n", text)
+	fmt.Printf("%s\n", raw)
+	fmt.Printf(sepMin)
+	fmt.Printf("%s\n", nom)
+	fmt.Printf(sepMin)
 	for _, t := range list.List {
 		features := strings.Join(t.Token.Features(), ",")
 		fmt.Printf("%s\t%v\n", t.Token.Surface, features)
 	}
-	fmt.Printf(sep)
+	fmt.Printf(sepMin)
 }
