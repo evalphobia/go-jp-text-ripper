@@ -26,25 +26,29 @@ func (t *Tokenizer) SetDictionary(path string) error {
 }
 
 // Tokenize separates text into tokens(words) and return the list
-func (t *Tokenizer) Tokenize(text string) *TokenList {
+func (t *Tokenizer) Tokenize(text string) (*TokenList, *TokenList) {
 	tokens := t.t.Tokenize(text)
 
-	result := make([]*Token, 0, len(tokens))
+	words := make([]*Token, 0, len(tokens))
+	nonWords := make([]*Token, 0, len(tokens))
 	for _, token := range tokens {
 		if token.Class == tokenizer.DUMMY {
 			continue
 		}
 
 		nt := newToken(token)
-		if !nt.isWord() {
-			continue
+		if nt.isWord() {
+			words = append(words, nt)
+		} else {
+			nonWords = append(nonWords, nt)
 		}
-
-		result = append(result, nt)
 	}
 
-	list := &TokenList{
-		List: result,
+	wordList := &TokenList{
+		List: words,
 	}
-	return list
+	nonList := &TokenList{
+		List: nonWords,
+	}
+	return wordList, nonList
 }

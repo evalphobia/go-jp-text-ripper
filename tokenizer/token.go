@@ -32,6 +32,10 @@ func (t *Token) isWord() bool {
 	return t.isNoun() || t.isVerb() || t.isAdjective()
 }
 
+func (t *Token) GetPos() string {
+	return t.pos
+}
+
 // HasFeature checks token contains the feature or not
 func (t *Token) HasFeature(f string) bool {
 	for _, val := range t.Token.Features() {

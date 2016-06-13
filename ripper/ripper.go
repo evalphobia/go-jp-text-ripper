@@ -176,15 +176,16 @@ func (r *Ripper) WriteHeader() error {
 	// extra header name
 	colText := Prefix + "text"
 	colWordCount := Prefix + "word_count"
+	colNonWordCount := Prefix + "non_word_count"
 	colCharCount := Prefix + "raw_char_count"
 
 	if !r.replaceColumn {
 		opHeader = append(opHeader, colText)
 	}
 
-	extraHeaders := []string{colWordCount, colCharCount}
+	extraHeaders := []string{colWordCount, colNonWordCount, colCharCount}
 	for _, p := range r.plugins {
-		extraHeaders = append(extraHeaders, p.Title)
+		extraHeaders = append(extraHeaders, Prefix+p.Title)
 	}
 	r.outputHeader = append(opHeader, extraHeaders...)
 
@@ -212,22 +213,25 @@ func (r *Ripper) ReadAndWriteLines() error {
 			return err
 		}
 
+		text := &TextData{}
+
 		// tokenize text
-		rawText := line[idx]
-		normalizedText := r.nom.Normalize(rawText)
-		tokens := tok.Tokenize(normalizedText)
+		text.raw = line[idx]
+		text.normalized = r.nom.Normalize(text.raw)
+		text.words, text.nonWords = tok.Tokenize(text.normalized)
 		if err != nil {
 			return err
 		}
 
 		if r.ShowDebug {
-			showDebug(rawText, normalizedText, tokens)
+			showDebug(text)
 		}
 
 		// create result line
-		words := tokens.GetWords()
+		words := text.words.GetWords()
 		wordCount := strconv.Itoa(len(words))
-		textLen := strconv.Itoa(utf8.RuneCountInString(rawText))
+		nonWordCount := strconv.Itoa(len(text.nonWords.GetWords()))
+		textLen := strconv.Itoa(utf8.RuneCountInString(text.raw))
 		wordLine := strings.Join(words, " ")
 		if r.ShowResult {
 			fmt.Println(wordLine)
@@ -239,11 +243,11 @@ func (r *Ripper) ReadAndWriteLines() error {
 		} else {
 			results = append(results, wordLine)
 		}
-		results = append(results, wordCount, textLen)
+		results = append(results, wordCount, nonWordCount, textLen)
 
 		// apply plugins
 		for _, p := range r.plugins {
-			pluginCount := p.Fn(rawText, normalizedText, tokens)
+			pluginCount := p.Fn(text)
 			results = append(results, pluginCount)
 			if r.ShowDebug {
 				fmt.Printf("%s: %s\n", p.Title, pluginCount)
@@ -264,15 +268,20 @@ func (r *Ripper) ReadAndWriteLines() error {
 	}
 }
 
-func showDebug(raw, nom string, list *tokenizer.TokenList) {
+func showDebug(text *TextData) {
 	const sep = "==============================\n"
 	const sepMin = "------\n"
 	fmt.Printf(sep)
-	fmt.Printf("%s\n", raw)
+	fmt.Printf("%s\n", text.raw)
 	fmt.Printf(sepMin)
-	fmt.Printf("%s\n", nom)
-	fmt.Printf(sepMin)
-	for _, t := range list.List {
+	fmt.Printf("%s\n", text.normalized)
+	fmt.Printf("%s words: %d\n", sepMin, len(text.words.List))
+	for _, t := range text.words.List {
+		features := strings.Join(t.Token.Features(), ",")
+		fmt.Printf("%s\t%v\n", t.Token.Surface, features)
+	}
+	fmt.Printf("%s non-words: %d\n", sepMin, len(text.words.List))
+	for _, t := range text.nonWords.List {
 		features := strings.Join(t.Token.Features(), ",")
 		fmt.Printf("%s\t%v\n", t.Token.Surface, features)
 	}

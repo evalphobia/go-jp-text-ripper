@@ -6,15 +6,13 @@ import (
 	"unicode"
 
 	"github.com/evalphobia/go-jp-text-ripper/ripper"
-	"github.com/evalphobia/go-jp-text-ripper/tokenizer"
 )
 
 // KanaNumberLikePlugin calculates number-like japanese word count from normalized text
 var KanaNumberLikePlugin = &ripper.Plugin{
 	Title: "kana_number_count",
-	Fn: func(_, nomText string, tokens *tokenizer.TokenList) string {
-		nomText = jpNumberReplacer.Replace(strings.ToLowerSpecial(kanaConv, nomText))
-		count := strings.Count(nomText, jpSymbol)
+	Fn: func(text *ripper.TextData) string {
+		count := strings.Count(jpNumberReplacer.Replace(strings.ToLowerSpecial(kanaConv, text.GetNormalized())), jpSymbol)
 		return strconv.Itoa(count)
 	},
 }
@@ -22,19 +20,8 @@ var KanaNumberLikePlugin = &ripper.Plugin{
 // KanaAlphabetLikePlugin calculates alphabet-like japanese word count from normalized text
 var KanaAlphabetLikePlugin = &ripper.Plugin{
 	Title: "kana_alphabet_count",
-	Fn: func(_, nomText string, tokens *tokenizer.TokenList) string {
-		nomText = jpAlphabetReplacer.Replace(strings.ToLowerSpecial(kanaConv, nomText))
-		count := strings.Count(nomText, jpSymbol)
-		return strconv.Itoa(count)
-	},
-}
-
-// KanaWWWLikePlugin calculates www-like japanese word count from normalized text
-var KanaWWWLikePlugin = &ripper.Plugin{
-	Title: "kana_www_count",
-	Fn: func(_, nomText string, tokens *tokenizer.TokenList) string {
-		nomText = jpWWWReplacer.Replace(strings.ToLowerSpecial(kanaConv, nomText))
-		count := strings.Count(nomText, jpSymbol)
+	Fn: func(text *ripper.TextData) string {
+		count := strings.Count(jpAlphabetReplacer.Replace(strings.ToLowerSpecial(kanaConv, text.GetNormalized())), jpSymbol)
 		return strconv.Itoa(count)
 	},
 }
@@ -53,7 +40,8 @@ var kanaConv = unicode.SpecialCase{
 
 const jpSymbol = "\x01"
 
-var jpNumberReplacer = strings.NewReplacer(`ぜろ`, jpSymbol,
+var jpNumberReplacer = strings.NewReplacer(
+	`ぜろ`, jpSymbol,
 	`いち`, jpSymbol,
 	// "に", jpSymbol,
 	"さん", jpSymbol,
@@ -77,7 +65,8 @@ var jpNumberReplacer = strings.NewReplacer(`ぜろ`, jpSymbol,
 	"ないん", jpSymbol,
 	"てん", jpSymbol)
 
-var jpAlphabetReplacer = strings.NewReplacer(`えー`, jpSymbol,
+var jpAlphabetReplacer = strings.NewReplacer(
+	`えー`, jpSymbol,
 	`びー`, jpSymbol, `びい`, jpSymbol,
 	`しー`, jpSymbol,
 	`でぃー`, jpSymbol,
@@ -103,24 +92,3 @@ var jpAlphabetReplacer = strings.NewReplacer(`えー`, jpSymbol,
 	`えっくす`, jpSymbol,
 	`わい`, jpSymbol,
 	`ぜっと`, jpSymbol)
-
-var jpWWWReplacer = strings.NewReplacer(`どっと`, jpSymbol,
-	`あっと`, jpSymbol,
-	`はいふん`, jpSymbol,
-	`こむ`, jpSymbol,
-	`ねっと`, jpSymbol,
-	`どこも`, jpSymbol,
-	`えーゆー`, jpSymbol,
-	`あう`, jpSymbol,
-	`そふとばんく`, jpSymbol,
-	`えすびー`, jpSymbol,
-	`そふばん`, jpSymbol,
-	`らいん`, jpSymbol,
-	`みどり`, jpSymbol,
-	`すかいぷ`, jpSymbol,
-	`かかお`, jpSymbol,
-	`あいでぃー`, jpSymbol,
-	`あどれす`, jpSymbol,
-	`ばんごう`, jpSymbol,
-	`けんさく`, jpSymbol,
-	`検索`, jpSymbol)

@@ -9,6 +9,9 @@ import (
 	"github.com/evalphobia/go-jp-text-ripper/normalizer"
 )
 
+// DefaultPlugins are plugins used in AutoRun
+var DefaultPlugins []*Plugin
+
 // flags
 var (
 	input    = ""
@@ -24,7 +27,7 @@ var (
 
 // AutoRun creates *Ripper from CLI flags and run it
 func AutoRun() {
-	err := initFlags()
+	err := InitFlags()
 	if err != nil {
 		fmt.Println(err.Error())
 		return
@@ -37,14 +40,6 @@ func AutoRun() {
 	}
 	defer r.Close()
 
-	// r.AddPlugin(plugin.NameCountPlugin)
-	// r.AddPlugin(plugin.NumberCountPlugin)
-	// r.AddPlugin(plugin.KanaNumberLikePlugin)
-	// r.AddPlugin(plugin.KanaAlphabetLikePlugin)
-	// r.AddPlugin(plugin.KanaWWWLikePlugin)
-	// r.AddPlugin(plugin.LocationCountPlugin)
-	// r.AddPlugin(plugin.OrganizationCountPlugin)
-
 	Run(r)
 }
 
@@ -53,10 +48,13 @@ func Run(r *Ripper) {
 
 	go func() {
 		tick := time.Tick(time.Duration(progress) * time.Second)
+		prev := 0
 		for {
 			select {
 			case <-tick:
-				fmt.Printf("[%s] line: %d\n", time.Now().Format("2006-01-02 15:04:05"), r.GetCurrentPosition())
+				cur := r.GetCurrentPosition()
+				fmt.Printf("[%s] line: %d, tps: %d\n", time.Now().Format("2006-01-02 15:04:05"), cur, (cur-prev)/progress)
+				prev = cur
 			}
 		}
 	}()
@@ -72,7 +70,7 @@ func Run(r *Ripper) {
 	fmt.Println("finish process")
 }
 
-func initFlags() error {
+func InitFlags() error {
 	err := parseFlags()
 	if err != nil {
 		return err
@@ -99,7 +97,7 @@ func parseFlags() error {
 func checkFlags() error {
 	switch {
 	case input == "":
-		return fmt.Errorf("no input file\nuse -csv <input file path>\n")
+		return fmt.Errorf("no input file\nuse -input <input file path>\n")
 	case output == "" && !show && !debug:
 		return fmt.Errorf("no output file\nuse -output <output file path>\n")
 	case column == "":
@@ -143,6 +141,10 @@ func newDefaultRipper() (*Ripper, error) {
 			return nil, err
 		}
 		r.SetNormalizer(normalizer.Neologd)
+	}
+
+	for _, p := range DefaultPlugins {
+		r.AddPlugin(p)
 	}
 
 	switch {
