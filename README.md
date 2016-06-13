@@ -47,6 +47,47 @@ user_id	status	text	op_word_count	op_raw_char_count
 2	1	ちゃん はむ ミ	3	22
 ```
 
+## Custome Go App
+
+Import `go-jp-text-ripper` and add plugins.
+You can add your custome plugins.
+
+```go
+package main
+
+import (
+	"github.com/evalphobia/go-jp-text-ripper/plugin"
+	"github.com/evalphobia/go-jp-text-ripper/ripper"
+)
+
+// cli entry point
+func main() {
+	ripper.DefaultPlugins = []*ripper.Plugin{
+		plugin.CharTypeCountPlugin,
+		plugin.MaxCharCountPlugin,
+		plugin.MaxWordCountPlugin,
+		plugin.SymbolCountPlugin,
+		plugin.NameCountPlugin,
+		plugin.NumberCountPlugin,
+		plugin.KanaNumberLikePlugin,
+		plugin.KanaAlphabetLikePlugin,
+		plugin.LocationCountPlugin,
+		plugin.OrganizationCountPlugin,
+		// MyCustomePlugin,
+		&ripper.Plugin{
+			Title: "proper_noun_count",
+			Fn: func(text *ripper.TextData) string {
+				return strconv.Itoa(text.GetWords().CountFeatures("固有名詞"))
+			},
+		},
+	}
+
+	ripper.AutoRun()
+}
+```
+
+then, build and run!
+
 ### Options
 
 - `-input`: input file path (required)
