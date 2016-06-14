@@ -1,15 +1,17 @@
-package normalizer
+package prefilter
 
 import (
 	"bytes"
 	"strings"
 	"unicode"
 	"unicode/utf8"
+
+	"github.com/evalphobia/go-jp-text-ripper/ripper"
 )
 
-// Neologd is struct to normalize text by neologd recommended format
-var Neologd = &Normalizer{
-	Normalize: func(rawText string) string {
+// Neologd is prefilter to normalize text by neologd recommended format
+var Neologd = &ripper.PreFilter{
+	Fn: func(rawText string) string {
 		return NormalizeNeologd(rawText)
 	},
 }

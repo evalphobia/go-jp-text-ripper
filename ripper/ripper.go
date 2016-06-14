@@ -7,7 +7,6 @@ import (
 	"strings"
 	"unicode/utf8"
 
-	"github.com/evalphobia/go-jp-text-ripper/normalizer"
 	"github.com/evalphobia/go-jp-text-ripper/reader"
 	"github.com/evalphobia/go-jp-text-ripper/tokenizer"
 	"github.com/evalphobia/go-jp-text-ripper/writer"
@@ -29,14 +28,15 @@ type Ripper struct {
 	outputHeader  []string
 	replaceColumn bool
 
-	tok *tokenizer.Tokenizer
-	nom *normalizer.Normalizer
-
-	plugins []*Plugin
+	tok         *tokenizer.Tokenizer
+	preFilters  []*PreFilter
+	plugins     []*Plugin
+	postFilters []*PostFilter
 
 	quoteCols []string
 	quoteIdx  []int
 
+	// console output flags
 	ShowResult bool
 	ShowDebug  bool
 }
@@ -46,7 +46,6 @@ func New(col string) *Ripper {
 	return &Ripper{
 		columnName: col,
 		tok:        tokenizer.New(),
-		nom:        normalizer.Default,
 	}
 }
 
@@ -108,14 +107,19 @@ func (r *Ripper) SetQuoteColumns(cols []string) {
 	r.quoteCols = c
 }
 
-// SetNormalizer sets normalizer
-func (r *Ripper) SetNormalizer(n *normalizer.Normalizer) {
-	r.nom = n
+// AddPreFilter adds pre filter
+func (r *Ripper) AddPreFilter(p *PreFilter) {
+	r.preFilters = append(r.preFilters, p)
 }
 
 // AddPlugin adds plugin
 func (r *Ripper) AddPlugin(p *Plugin) {
 	r.plugins = append(r.plugins, p)
+}
+
+// AddPostFilter adds post filter
+func (r *Ripper) AddPostFilter(p *PostFilter) {
+	r.postFilters = append(r.postFilters, p)
 }
 
 // GetCurrentPosition return current pos
@@ -187,6 +191,10 @@ func (r *Ripper) WriteHeader() error {
 	for _, p := range r.plugins {
 		extraHeaders = append(extraHeaders, Prefix+p.Title)
 	}
+	for _, p := range r.postFilters {
+		extraHeaders = append(extraHeaders, Prefix+p.Title)
+	}
+
 	r.outputHeader = append(opHeader, extraHeaders...)
 
 	// write to file
@@ -217,7 +225,7 @@ func (r *Ripper) ReadAndWriteLines() error {
 
 		// tokenize text
 		text.raw = line[idx]
-		text.normalized = r.nom.Normalize(text.raw)
+		text.normalized = r.applyPreFilters(text.raw)
 		text.words, text.nonWords = tok.Tokenize(text.normalized)
 		if err != nil {
 			return err
@@ -245,14 +253,8 @@ func (r *Ripper) ReadAndWriteLines() error {
 		}
 		results = append(results, wordCount, nonWordCount, textLen)
 
-		// apply plugins
-		for _, p := range r.plugins {
-			pluginCount := p.Fn(text)
-			results = append(results, pluginCount)
-			if r.ShowDebug {
-				fmt.Printf("%s: %s\n", p.Title, pluginCount)
-			}
-		}
+		results = r.applyPlugins(results, text)
+		results = r.applyPostFilters(results, line)
 
 		// quoting
 		for _, i := range r.quoteIdx {
@@ -266,6 +268,49 @@ func (r *Ripper) ReadAndWriteLines() error {
 			return err
 		}
 	}
+}
+
+// applyPreFilters runs prefilters function and return normalized text
+func (r *Ripper) applyPreFilters(text string) string {
+	for _, p := range r.preFilters {
+		text = p.Fn(text)
+	}
+	return text
+}
+
+// applyPlugins runs plugins function and adds result
+func (r *Ripper) applyPlugins(results []string, text *TextData) []string {
+	for _, p := range r.plugins {
+		fnResult := p.Fn(text)
+		results = append(results, fnResult)
+		if r.ShowDebug {
+			fmt.Printf("%s: %s\n", p.Title, fnResult)
+		}
+	}
+	return results
+}
+
+// applyPostFilters runs postfilters function and adds the result
+func (r *Ripper) applyPostFilters(results, line []string) []string {
+	if len(r.postFilters) == 0 {
+		return results
+	}
+
+	data := make(map[string]string)
+	header := r.outputHeader
+	for i, val := range append(line, results...) {
+		title := strings.TrimPrefix(header[i], Prefix)
+		data[title] = val
+	}
+
+	for _, p := range r.postFilters {
+		fnResult := p.Fn(data)
+		results = append(results, fnResult)
+		if r.ShowDebug {
+			fmt.Printf("%s: %s\n", p.Title, fnResult)
+		}
+	}
+	return results
 }
 
 func showDebug(text *TextData) {

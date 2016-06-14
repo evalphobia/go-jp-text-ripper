@@ -32,6 +32,7 @@ func (t *Token) isWord() bool {
 	return t.isNoun() || t.isVerb() || t.isAdjective()
 }
 
+// GetPos returns pos text (the first feature)
 func (t *Token) GetPos() string {
 	return t.pos
 }
@@ -69,4 +70,14 @@ func (list *TokenList) CountFeatures(f string) int {
 		}
 	}
 	return count
+}
+
+// HasFeatures checks if countain matched feature
+func (list *TokenList) HasFeatures(f string) bool {
+	for _, t := range list.List {
+		if t.HasFeature(f) {
+			return true
+		}
+	}
+	return false
 }

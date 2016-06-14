@@ -1,4 +1,8 @@
-# go-jp-text-ripper
+go-jp-text-ripper
+====
+
+[![Build Status](https://travis-ci.org/evalphobia/go-jp-text-ripper.svg?branch=master)](https://travis-ci.org/evalphobia/go-jp-text-ripper) [![codecov](https://codecov.io/gh/evalphobia/go-jp-text-ripper/branch/master/graph/badge.svg)](https://codecov.io/gh/evalphobia/go-jp-text-ripper)
+ [![GoDoc](https://godoc.org/github.com/evalphobia/go-jp-text-ripper?status.svg)](https://godoc.org/github.com/evalphobia/go-jp-text-ripper)
 
 Separate long text into words and put spaces between ths words.
 
@@ -62,17 +66,26 @@ import (
 
 // cli entry point
 func main() {
+	// prefilters to normalize raw text
+	ripper.DefaultPreFilters = []*ripper.PreFilter{
+			prefilter.Neologd,
+	}
+
+	// plugins
 	ripper.DefaultPlugins = []*ripper.Plugin{
+		plugin.KanaCountPlugin,
+		plugin.AlphaNumCountPlugin,
 		plugin.CharTypeCountPlugin,
 		plugin.MaxCharCountPlugin,
 		plugin.MaxWordCountPlugin,
 		plugin.SymbolCountPlugin,
-		plugin.NameCountPlugin,
-		plugin.NumberCountPlugin,
-		plugin.KanaNumberLikePlugin,
-		plugin.KanaAlphabetLikePlugin,
-		plugin.LocationCountPlugin,
-		plugin.OrganizationCountPlugin,
+		plugin.NounNameCountPlugin,
+		plugin.NounHasFullNamePlugin,
+		plugin.NounNumberCountPlugin,
+		plugin.KanaNumberLikeCountPlugin,
+		plugin.KanaAlphabetLikeCountPlugin,
+		plugin.NounLocationCountPlugin,
+		plugin.NounOrganizationCountPlugin,
 		// MyCustomePlugin,
 		&ripper.Plugin{
 			Title: "proper_noun_count",
@@ -80,6 +93,12 @@ func main() {
 				return strconv.Itoa(text.GetWords().CountFeatures("固有名詞"))
 			},
 		},
+	}
+
+	// postfilters running after processed all of the plugins
+	ripper.DefaultPostFilters = []*ripper.PostFilter{
+		postfilter.RatioJP,
+		postfilter.RatioAlphaNum,
 	}
 
 	ripper.AutoRun()

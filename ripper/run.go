@@ -5,12 +5,14 @@ import (
 	"fmt"
 	"strings"
 	"time"
-
-	"github.com/evalphobia/go-jp-text-ripper/normalizer"
 )
 
-// DefaultPlugins are plugins used in AutoRun
-var DefaultPlugins []*Plugin
+// Default plugins used in AutoRun
+var (
+	DefaultPlugins     []*Plugin
+	DefaultPreFilters  []*PreFilter
+	DefaultPostFilters []*PostFilter
+)
 
 // flags
 var (
@@ -70,6 +72,7 @@ func Run(r *Ripper) {
 	fmt.Println("finish process")
 }
 
+// InitFlags initializes flag args
 func InitFlags() error {
 	err := parseFlags()
 	if err != nil {
@@ -140,11 +143,16 @@ func newDefaultRipper() (*Ripper, error) {
 			r.Close()
 			return nil, err
 		}
-		r.SetNormalizer(normalizer.Neologd)
 	}
 
+	for _, p := range DefaultPreFilters {
+		r.AddPreFilter(p)
+	}
 	for _, p := range DefaultPlugins {
 		r.AddPlugin(p)
+	}
+	for _, p := range DefaultPostFilters {
+		r.AddPostFilter(p)
 	}
 
 	switch {
