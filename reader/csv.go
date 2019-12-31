@@ -65,6 +65,7 @@ type reader interface {
 
 func newCSVReader(fp *os.File) reader {
 	r := csv.NewReader(fp)
+	r.FieldsPerRecord = -1
 	return r
 }
 
@@ -72,5 +73,6 @@ func newTSVReader(fp *os.File) reader {
 	r := csv.NewReader(fp)
 	r.Comma = '\t'
 	r.LazyQuotes = true
+	r.FieldsPerRecord = -1
 	return r
 }

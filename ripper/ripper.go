@@ -7,26 +7,20 @@ import (
 	"strings"
 	"unicode/utf8"
 
+	"github.com/evalphobia/go-jp-text-ripper/log"
 	"github.com/evalphobia/go-jp-text-ripper/reader"
 	"github.com/evalphobia/go-jp-text-ripper/tokenizer"
 	"github.com/evalphobia/go-jp-text-ripper/writer"
 )
-
-const defaultPrefix = "op_"
-
-// Prefix is output column prefix to add
-var Prefix = defaultPrefix
 
 // Ripper is struct for putting spaces between words
 type Ripper struct {
 	r           *reader.Reader
 	inputHeader []string
 	columnIndex int
-	columnName  string
 
-	w             *writer.Writer
-	outputHeader  []string
-	replaceColumn bool
+	w            *writer.Writer
+	outputHeader []string
 
 	tok         *tokenizer.Tokenizer
 	preFilters  []*PreFilter
@@ -36,46 +30,48 @@ type Ripper struct {
 	quoteCols []string
 	quoteIdx  []int
 
-	// console output flags
-	ShowResult bool
-	ShowDebug  bool
+	Config Config
 }
 
-// New returns initialized Ripper
-func New(col string) *Ripper {
-	return &Ripper{
-		columnName: col,
-		tok:        tokenizer.New(),
+// New returns initialized Ripper.
+func New(c Config) (*Ripper, error) {
+	r := &Ripper{
+		tok: tokenizer.New(tokenizer.Config{
+			WordPosList:     c.GetPosList(),
+			StopWordList:    c.StopWords,
+			MinLetterSize:   c.MinLetterSize,
+			UseOriginalForm: c.UseOriginalForm,
+		}),
 	}
-}
 
-// NewFromFiles returns initialized Ripper
-func NewFromFiles(in, out, col string) (*Ripper, error) {
-	r := New(col)
-
-	err := r.SetReaderFromFile(in)
-	if err != nil {
+	if err := r.SetReaderFromFile(c.Input); err != nil {
 		return nil, err
 	}
-
-	err = r.SetWriterFromFile(out)
-	if err != nil {
-		return nil, err
+	switch {
+	case c.Output == "":
+		r.w = writer.NewDummy()
+	default:
+		if err := r.SetWriterFromFile(c.Output); err != nil {
+			return nil, err
+		}
 	}
 
-	return r, nil
-}
-
-// NewWithReaderFromFile returns initialized Ripper
-func NewWithReaderFromFile(in, col string) (*Ripper, error) {
-	r := New(col)
-
-	err := r.SetReaderFromFile(in)
-	if err != nil {
-		return nil, err
+	r.Config = c
+	if len(c.Quotes) != 0 {
+		r.SetQuoteColumns(c.Quotes)
 	}
 
-	r.w = writer.NewDummy()
+	// set original dictionary
+	if c.Dictionary != "" {
+		if err := r.SetDictionary(c.Dictionary); err != nil {
+			r.Close()
+			return nil, err
+		}
+	}
+
+	r.AddPreFilters(c.PreFilters...)
+	r.AddPlugins(c.Plugins...)
+	r.AddPostFilters(c.PostFilters...)
 	return r, nil
 }
 
@@ -107,19 +103,19 @@ func (r *Ripper) SetQuoteColumns(cols []string) {
 	r.quoteCols = c
 }
 
-// AddPreFilter adds pre filter
-func (r *Ripper) AddPreFilter(p *PreFilter) {
-	r.preFilters = append(r.preFilters, p)
+// AddPreFilter adds pre filter.
+func (r *Ripper) AddPreFilters(p ...*PreFilter) {
+	r.preFilters = append(r.preFilters, p...)
 }
 
-// AddPlugin adds plugin
-func (r *Ripper) AddPlugin(p *Plugin) {
-	r.plugins = append(r.plugins, p)
+// AddPlugin adds plugin.
+func (r *Ripper) AddPlugins(p ...*Plugin) {
+	r.plugins = append(r.plugins, p...)
 }
 
-// AddPostFilter adds post filter
-func (r *Ripper) AddPostFilter(p *PostFilter) {
-	r.postFilters = append(r.postFilters, p)
+// AddPostFilter adds post filter.
+func (r *Ripper) AddPostFilters(p ...*PostFilter) {
+	r.postFilters = append(r.postFilters, p...)
 }
 
 // GetCurrentPosition return current pos
@@ -154,7 +150,7 @@ func (r *Ripper) ReadHeader(col string) error {
 		}
 	}
 	if !hasColumn {
-		return fmt.Errorf("cannnot find column name in header: %s", col)
+		return fmt.Errorf("cannnot find column name in header: col:[%s] headers:[%+v]", col, header)
 	}
 
 	r.inputHeader = header
@@ -163,9 +159,11 @@ func (r *Ripper) ReadHeader(col string) error {
 
 // WriteHeader writes header columns
 func (r *Ripper) WriteHeader() error {
+	c := r.Config
+
 	// read header if not read yet
 	if len(r.inputHeader) == 0 {
-		err := r.ReadHeader(r.columnName)
+		err := r.ReadHeader(c.Column)
 		if err != nil {
 			return err
 		}
@@ -178,21 +176,21 @@ func (r *Ripper) WriteHeader() error {
 	copy(opHeader, inHeader)
 
 	// extra header name
-	colText := Prefix + "text"
-	colWordCount := Prefix + "word_count"
-	colNonWordCount := Prefix + "non_word_count"
-	colCharCount := Prefix + "raw_char_count"
+	colText := c.Prefix + "text"
+	colWordCount := c.Prefix + "word_count"
+	colNonWordCount := c.Prefix + "non_word_count"
+	colCharCount := c.Prefix + "raw_char_count"
 
-	if !r.replaceColumn {
+	if !r.Config.ReplaceText {
 		opHeader = append(opHeader, colText)
 	}
 
 	extraHeaders := []string{colWordCount, colNonWordCount, colCharCount}
 	for _, p := range r.plugins {
-		extraHeaders = append(extraHeaders, Prefix+p.Title)
+		extraHeaders = append(extraHeaders, c.Prefix+p.Title)
 	}
 	for _, p := range r.postFilters {
-		extraHeaders = append(extraHeaders, Prefix+p.Title)
+		extraHeaders = append(extraHeaders, c.Prefix+p.Title)
 	}
 
 	r.outputHeader = append(opHeader, extraHeaders...)
@@ -201,29 +199,39 @@ func (r *Ripper) WriteHeader() error {
 	return r.w.Write(r.outputHeader)
 }
 
-// WriteHeaderWithReplace writes header columns and set as targe column is replaced
-func (r *Ripper) WriteHeaderWithReplace() error {
-	r.replaceColumn = true
-	return r.WriteHeader()
-}
-
 // ReadAndWriteLines process each lines, read data, tokenize, and write it.
 func (r *Ripper) ReadAndWriteLines() error {
+	c := r.Config
+	logger := c.Logger
 	idx := r.columnIndex
 	tok := r.tok
+
+	lastLineNo := 1
+	lastLineText := ""
+	defer func() {
+		err := recover()
+		if err == nil {
+			return
+		}
+		logger.Errorf("ReadAndWriteLines", "unknown error occurred on Line:[%d] Text:[%s]\n", lastLineNo, lastLineText)
+	}()
+
 	for {
+		lastLineNo++
 		line, err := r.r.Read()
 		switch {
 		case err == io.EOF:
 			// end of file
 			return nil
 		case err != nil:
+			logger.Errorf("ReadAndWriteLines", "r.r.Read() err:[%s]\n", err.Error())
 			return err
 		}
 
 		text := &TextData{}
 
 		// tokenize text
+		lastLineText = line[idx]
 		text.raw = line[idx]
 		text.normalized = r.applyPreFilters(text.raw)
 		text.words, text.nonWords = tok.Tokenize(text.normalized)
@@ -231,8 +239,8 @@ func (r *Ripper) ReadAndWriteLines() error {
 			return err
 		}
 
-		if r.ShowDebug {
-			showDebug(text)
+		if c.Debug {
+			showDebug(logger, text)
 		}
 
 		// create result line
@@ -241,12 +249,15 @@ func (r *Ripper) ReadAndWriteLines() error {
 		nonWordCount := strconv.Itoa(len(text.nonWords.GetWords()))
 		textLen := strconv.Itoa(utf8.RuneCountInString(text.raw))
 		wordLine := strings.Join(words, " ")
-		if r.ShowResult {
-			fmt.Println(wordLine)
+		if c.ShowResult {
+			logger.Infof("ReadAndWriteLines", wordLine)
+		}
+		if c.DropEmpty && wordLine == "" {
+			continue
 		}
 
 		var results []string
-		if r.replaceColumn {
+		if c.ReplaceText {
 			line[idx] = wordLine
 		} else {
 			results = append(results, wordLine)
@@ -265,6 +276,7 @@ func (r *Ripper) ReadAndWriteLines() error {
 		results = append(line, results...)
 		err = r.w.Write(results)
 		if err != nil {
+			logger.Errorf("ReadAndWriteLines", "r.w.Write() err:[%s]\n", err.Error())
 			return err
 		}
 	}
@@ -280,11 +292,14 @@ func (r *Ripper) applyPreFilters(text string) string {
 
 // applyPlugins runs plugins function and adds result
 func (r *Ripper) applyPlugins(results []string, text *TextData) []string {
+	c := r.Config
+	logger := c.Logger
+
 	for _, p := range r.plugins {
 		fnResult := p.Fn(text)
 		results = append(results, fnResult)
-		if r.ShowDebug {
-			fmt.Printf("%s: %s\n", p.Title, fnResult)
+		if c.Debug {
+			logger.Debugf("applyPlugins", "%s: %s\n", p.Title, fnResult)
 		}
 	}
 	return results
@@ -295,40 +310,44 @@ func (r *Ripper) applyPostFilters(results, line []string) []string {
 	if len(r.postFilters) == 0 {
 		return results
 	}
+	c := r.Config
+	logger := c.Logger
 
 	data := make(map[string]string)
 	header := r.outputHeader
 	for i, val := range append(line, results...) {
-		title := strings.TrimPrefix(header[i], Prefix)
+		title := strings.TrimPrefix(header[i], c.Prefix)
 		data[title] = val
 	}
 
 	for _, p := range r.postFilters {
 		fnResult := p.Fn(data)
 		results = append(results, fnResult)
-		if r.ShowDebug {
-			fmt.Printf("%s: %s\n", p.Title, fnResult)
+		if c.Debug {
+			logger.Debugf("applyPostFilters", "%s: %s\n", p.Title, fnResult)
 		}
 	}
 	return results
 }
 
-func showDebug(text *TextData) {
-	const sep = "==============================\n"
-	const sepMin = "------\n"
-	fmt.Printf(sep)
-	fmt.Printf("%s\n", text.raw)
-	fmt.Printf(sepMin)
-	fmt.Printf("%s\n", text.normalized)
-	fmt.Printf("%s words: %d\n", sepMin, len(text.words.List))
+func showDebug(logger log.Logger, text *TextData) {
+	const sep = "=============================="
+	const sepMin = "------"
+	data := make([]string, 0, 1024)
+	data = append(data, sep)
+	data = append(data, text.raw)
+	data = append(data, sepMin)
+	data = append(data, text.normalized)
+	data = append(data, fmt.Sprintf("%s words: %d", sepMin, len(text.words.List)))
 	for _, t := range text.words.List {
 		features := strings.Join(t.Token.Features(), ",")
-		fmt.Printf("%s\t%v\n", t.Token.Surface, features)
+		data = append(data, fmt.Sprintf("%s\t%v", t.Token.Surface, features))
 	}
-	fmt.Printf("%s non-words: %d\n", sepMin, len(text.words.List))
+	data = append(data, fmt.Sprintf("%s non-words: %d\n", sepMin, len(text.words.List)))
 	for _, t := range text.nonWords.List {
 		features := strings.Join(t.Token.Features(), ",")
-		fmt.Printf("%s\t%v\n", t.Token.Surface, features)
+		data = append(data, fmt.Sprintf("%s\t%v", t.Token.Surface, features))
 	}
-	fmt.Printf(sepMin)
+	data = append(data, sepMin)
+	logger.Debugf("", strings.Join(data, "\n"))
 }

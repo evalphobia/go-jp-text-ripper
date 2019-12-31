@@ -1,45 +1,60 @@
 package tokenizer
 
-import "github.com/ikawaha/kagome/tokenizer"
+import (
+	"regexp"
 
-// Token is a tokenized word
+	"github.com/ikawaha/kagome/tokenizer"
+)
+
+// Token is a tokenized word.
 type Token struct {
 	tokenizer.Token
-	pos string
+	pos      string
+	features []string
+
+	WordPosList   []string
+	MinLetterSize int
 }
 
 func newToken(token tokenizer.Token) *Token {
 	t := &Token{
-		Token: token,
-		pos:   token.Pos(),
+		Token:         token,
+		pos:           token.Pos(),
+		features:      token.Features(),
+		MinLetterSize: 1,
 	}
 	return t
 }
 
-func (t *Token) isNoun() bool {
-	return t.pos == "名詞"
-}
-
-func (t *Token) isVerb() bool {
-	return t.pos == "動詞"
-}
-
-func (t *Token) isAdjective() bool {
-	return t.pos == "形容詞"
-}
-
-func (t *Token) isWord() bool {
-	return t.isNoun() || t.isVerb() || t.isAdjective()
-}
-
-// GetPos returns pos text (the first feature)
+// GetPos returns pos text (the first feature).
 func (t *Token) GetPos() string {
 	return t.pos
 }
 
-// HasFeature checks token contains the feature or not
+// GetSurface returns surface text.
+func (t *Token) GetSurface() string {
+	return t.Token.Surface
+}
+
+// GetOriginalForm returns the original form of surface text.
+func (t *Token) GetOriginalForm() string {
+	if len(t.features) < 7 {
+		return t.GetSurface()
+	}
+
+	s := t.features[6]
+	switch s {
+	case "",
+		"*":
+		return t.GetSurface()
+	default:
+		return s
+	}
+}
+
+// HasFeature checks token contains the feature or not.
 func (t *Token) HasFeature(f string) bool {
-	for _, val := range t.Token.Features() {
+	for _, val := range t.features {
 		if val == f {
 			return true
 		}
@@ -49,14 +64,22 @@ func (t *Token) HasFeature(f string) bool {
 
 // TokenList is token slice list
 type TokenList struct {
-	List []*Token
+	List            []*Token
+	UseOriginalForm bool
 }
 
 // GetWords returns word list
 func (list *TokenList) GetWords() []string {
 	words := make([]string, len(list.List))
+
+	useOriginal := list.UseOriginalForm
 	for i, t := range list.List {
-		words[i] = t.Token.Surface
+		switch {
+		case useOriginal:
+			words[i] = t.GetOriginalForm()
+		default:
+			words[i] = t.GetSurface()
+		}
 	}
 	return words
 }
@@ -81,3 +104,27 @@ func (list *TokenList) HasFeatures(f string) bool {
 	}
 	return false
 }
+
+var (
+	// from: https://techlife.cookpad.com/entry/2019/02/20/120219
+	ReCJKPatterns            = regexp.MustCompile("[" + CJKPatterns + "]+")
+	ReNonCJKPatterns         = regexp.MustCompile("[^" + CJKPatterns + "]+")
+	ReNonCJKPatternsWithSign = regexp.MustCompile("[^" + CJKPatternsWithSign + "]+")
+
+	CJKPatterns = `\x{3040}-\x{309F}` + // Hiragana
+		`\x{30A0}-\x{30FF}` + // Katakana
+		`\x{FF65}-\x{FF9F}` + // Half width Katakana
+		`\x{FF10}-\x{FF19}` + // Full width digits
+		`\x{FF21}-\x{FF3A}` + // Full width Upper case English Alphabets
+		`\x{FF41}-\x{FF5A}` + // Full width Lower case English Alphabets
+		`\x{0030}-\x{0039}` + // Half width digits
+		`\x{0041}-\x{005A}` + // Half width Upper case English Alphabets
+		`\x{0061}-\x{007A}` + // Half width Lower case English Alphabets
+		`\x{3190}-\x{319F}` + // Kanbun
+		`\x{4E00}-\x{9FFF}` // CJK unified ideographs. kanjis
+
+	CJKPatternsWithSign = CJKPatterns +
+		`\x{3001}-\x{3002}` + // '、' '。'
+		`\x{0021}` + // '!'
+		`\x{FF01}` // '！'
+)

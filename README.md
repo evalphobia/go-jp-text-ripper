@@ -1,10 +1,33 @@
 go-jp-text-ripper
-====
+----
 
-[![Build Status](https://travis-ci.org/evalphobia/go-jp-text-ripper.svg?branch=master)](https://travis-ci.org/evalphobia/go-jp-text-ripper) [![codecov](https://codecov.io/gh/evalphobia/go-jp-text-ripper/branch/master/graph/badge.svg)](https://codecov.io/gh/evalphobia/go-jp-text-ripper)
- [![GoDoc](https://godoc.org/github.com/evalphobia/go-jp-text-ripper?status.svg)](https://godoc.org/github.com/evalphobia/go-jp-text-ripper)
+[![GoDoc][1]][2] [![License: MIT][3]][4] [![Release][5]][6] [![Build Status][7]][8] [![Co decov Coverage][11]][12] [![Go Report Card][13]][14] [![Code Climate][19]][20] [![BCH compliance][21]][22] [![Downloads][15]][16]
 
-Separate long text into words and put spaces between ths words.
+[1]: https://godoc.org/github.com/evalphobia/go-jp-text-ripper?status.svg
+[2]: https://godoc.org/github.com/evalphobia/go-jp-text-ripper
+[3]: https://img.shields.io/badge/license-Apache%202-blue
+[4]: LICENSE.md
+[5]: https://img.shields.io/github/release/evalphobia/go-jp-text-ripper.svg
+[6]: https://github.com/evalphobia/go-jp-text-ripper/releases/latest
+[7]: https://travis-ci.org/evalphobia/go-jp-text-ripper.svg?branch=master
+[8]: https://travis-ci.org/evalphobia/go-jp-text-ripper
+[9]: https://coveralls.io/repos/evalphobia/go-jp-text-ripper/badge.svg?branch=master&service=github
+[10]: https://coveralls.io/github/evalphobia/go-jp-text-ripper?branch=master
+[11]: https://codecov.io/github/evalphobia/go-jp-text-ripper/coverage.svg?branch=master
+[12]: https://codecov.io/github/evalphobia/go-jp-text-ripper?branch=master
+[13]: https://goreportcard.com/badge/github.com/evalphobia/go-jp-text-ripper
+[14]: https://goreportcard.com/report/github.com/evalphobia/go-jp-text-ripper
+[15]: https://img.shields.io/github/downloads/evalphobia/go-jp-text-ripper/total.svg?maxAge=1800
+[16]: https://github.com/evalphobia/go-jp-text-ripper/releases
+[17]: https://img.shields.io/github/stars/evalphobia/go-jp-text-ripper.svg
+[18]: https://github.com/evalphobia/go-jp-text-ripper/stargazers
+[19]: https://codeclimate.com/github/evalphobia/go-jp-text-ripper/badges/gpa.svg
+[20]: https://codeclimate.com/github/evalphobia/go-jp-text-ripper
+[21]: https://bettercodehub.com/edge/badge/evalphobia/go-jp-text-ripper?branch=master
+[22]: https://bettercodehub.com/
+
+
+`go-jp-text-ripper` separates long text of Japanese into words and put spaces between ths words.
 
 
 # Quick Usage
@@ -109,21 +132,16 @@ then, build and run!
 
 ### Options
 
-- `-input`: input file path (required)
-    - supported file format: `csv`, `tsv`
-    - auto detect from the file extension
-- `-output`: output file path (required)
-    - supported file format: `csv`, `tsv`
-    - auto detect from the file extension
-    - omit this option if you set `-show` flag
-- `-column`: target column name (required)
-- `-replace`: replace the column for the result words
-    - `false`: output result into added new column `op_text`
-    - `true`: output result into column `-column`
-- `-show`: print separated words on console
-- `-debug`: print word details on console
-- `-progress`: print current progress on console (default=30)
-- `-quote`: columns name to quote output (comma separated)
+| option | description | required | default | example |
+|:--|:--|:--|:--:|:--:|:--|
+| `-column` | Target column name | yes | - |  |
+| `-input` | Input file path. Delimiter is auto-detected by the extention. Supported file formats are `csv`, `tsv`  | yes | - | `list.csv` `file.tsv` |
+| `-output` | Output file path. Delimiter is auto-detected by the extention. If you set `-show` flag, you can omit this option. | (yes) | - | `output.csv` `result.tsv` |
+| `-replace` | Replace the column of the result words. If it's true, the result will be on column `-column`. If it's false, the result will be added on new column `op_text` | - | `false` | `false` `true` |
+| `-show` | Print separated words on console. | - | `false` | `false` `true` |
+| `-debug` | Print word details on console. | - | `false` | `false` `true` |
+| `-progress` | Intervals to print current progress on console | - | 30 | `false` `true` |
+| `-quote` | Columns name to quote for the output result. You can set multiple columns with comma. | - |  | `id,name,data` |
 
 # License
 
