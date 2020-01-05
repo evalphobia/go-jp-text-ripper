@@ -14,6 +14,12 @@ jobs:
         go-version: 1.13
       id: go
 
+    - name: setup env
+      run: |
+        echo "::set-env name=GOPATH::$(go env GOPATH)"
+        echo "::add-path::$(go env GOPATH)/bin"
+      shell: bash
+
     - name: Check out code
       uses: actions/checkout@v1
 
