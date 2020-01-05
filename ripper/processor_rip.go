@@ -68,7 +68,7 @@ func (r *RipProcessor) SetQuoteColumns(cols []string) {
 	r.quoteCols = c
 }
 
-// ReadHeader reads header columns and sets target column by index.
+// ReadHeader reads header columns and sets target column.
 func (r *RipProcessor) ReadHeader() error {
 	c := r.Config
 	switch {
@@ -260,7 +260,7 @@ func (r *RipProcessor) Do() error {
 	}
 }
 
-// doGetRankStopWord processes with showing progress.
+// doGetRankStopWord gets word frequency for the stop words.
 func (r *RipProcessor) doGetRankStopWord() (RankResult, error) {
 	c := r.Config
 	rp, err := NewRankProcessor(RankConfig{

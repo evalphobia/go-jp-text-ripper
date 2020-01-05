@@ -30,7 +30,7 @@ func DoRank(conf RankConfig) error {
 	return r.DoWithProgress()
 }
 
-// RankProcessor is struct for putting spaces between words
+// RankProcessor is struct for word ranking.
 type RankProcessor struct {
 	*CommonProcessor
 	Config RankConfig
@@ -50,7 +50,7 @@ func NewRankProcessor(c RankConfig) (*RankProcessor, error) {
 	return r, nil
 }
 
-// ReadHeader reads header columns and sets target column by index.
+// ReadHeader reads header columns and sets target column.
 func (r *RankProcessor) ReadHeader() error {
 	c := r.Config
 	switch {

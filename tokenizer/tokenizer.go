@@ -67,7 +67,7 @@ func (t *Tokenizer) SetDictionary(path string) error {
 	return nil
 }
 
-// AddStopWords sets new dictionary for tokenize
+// AddStopWords adds word into stop word list.
 func (t *Tokenizer) AddStopWords(list ...string) {
 	for _, p := range list {
 		t.stopWordMap[p] = struct{}{}
