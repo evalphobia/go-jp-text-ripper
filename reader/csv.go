@@ -16,6 +16,7 @@ type Reader struct {
 
 // NewFromFile returns initialized Reader for file
 func NewFromFile(filepath string) (*Reader, error) {
+	/* #nosec G304 */
 	fp, err := os.Open(filepath)
 	if err != nil {
 		return nil, err
@@ -49,8 +50,8 @@ func (r *Reader) Read() ([]string, error) {
 }
 
 // Close closes file
-func (r *Reader) Close() {
-	r.fp.Close()
+func (r *Reader) Close() error {
+	return r.fp.Close()
 }
 
 // GetPosition returns position(read line number)

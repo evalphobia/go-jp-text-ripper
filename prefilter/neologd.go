@@ -115,8 +115,10 @@ func eliminateSpace(s string) string {
 		c, w := utf8.DecodeRuneInString(s[p:])
 		p += w
 		if !unicode.IsSpace(c) {
-			b.WriteRune(c)
-			prev = c
+			_, err := b.WriteRune(c)
+			if err == nil {
+				prev = c
+			}
 			continue
 		}
 		for p < len(s) {
@@ -125,9 +127,9 @@ func eliminateSpace(s string) string {
 			if !unicode.IsSpace(c0) {
 				if unicode.In(prev, unicode.Latin, latinSymbols) &&
 					unicode.In(c0, unicode.Latin, latinSymbols) {
-					b.WriteRune(' ')
+					_, _ = b.WriteRune(' ')
 				}
-				b.WriteRune(c0)
+				_, _ = b.WriteRune(c0)
 				prev = c0
 				break
 			}
@@ -142,15 +144,15 @@ func shurinkProlongedSoundMark(s string) string {
 	for p := 0; p < len(s); {
 		c, w := utf8.DecodeRuneInString(s[p:])
 		p += w
-		b.WriteRune(c)
-		if c != prolongedSoundMark {
+		_, err := b.WriteRune(c)
+		if err != nil || c != prolongedSoundMark {
 			continue
 		}
 		for p < len(s) {
 			c0, w0 := utf8.DecodeRuneInString(s[p:])
 			p += w0
 			if c0 != prolongedSoundMark {
-				b.WriteRune(c0)
+				_, _ = b.WriteRune(c0)
 				break
 			}
 		}

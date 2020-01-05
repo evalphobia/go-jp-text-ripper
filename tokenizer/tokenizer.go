@@ -23,7 +23,6 @@ type Tokenizer struct {
 	minLetterSize   int
 	wordPosList     []string
 	wordPosMap      map[string]struct{}
-	stopWordList    []string
 	stopWordMap     map[string]struct{}
 	useOriginalForm bool
 }
@@ -66,6 +65,13 @@ func (t *Tokenizer) SetDictionary(path string) error {
 
 	t.t.SetDic(dic)
 	return nil
+}
+
+// AddStopWords adds word into stop word list.
+func (t *Tokenizer) AddStopWords(list ...string) {
+	for _, p := range list {
+		t.stopWordMap[p] = struct{}{}
+	}
 }
 
 // Tokenize separates text into tokens(words) and return the list
