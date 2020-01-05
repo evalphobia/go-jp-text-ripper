@@ -203,14 +203,14 @@ $ go-jp-text-ripper rip --input ./example/aozora_bunko.tsv --column exerpt --sho
     --stopunique
 ```
 
-### rip
+### rank
 
-`rip` command separate japanese text into words from `--input` file.
+`rank` command gets word frequency ranking from `--input` file.
 
 ```sh
-$ go-jp-text-ripper rip -h
+$ go-jp-text-ripper rank -h
 
-Separate japanese text into words from CSV/TSV file
+Show ranking of the word frequency
 
 Options:
 
@@ -229,19 +229,14 @@ Options:
       --neologd         use prefilter for neologd
       --progress[=30]   print current progress (sec)
       --min[=1]         minimum letter size for output
-      --quote           columns to add double-quotes (separated by comma)
-      --prefix          prefix name for new columns
-  -r, --replace         replace from text column data to output result
-      --debug           print debug result to console
-      --dropempty       remove empty result from output
-      --stoptop         use ranking from top as stopword
-      --stoptopp        use ranking from top by percent as stopword (0.0 ~ 1.0)
-      --stoplast        use ranking from last as stopword
-      --stoplastp       use ranking from last by percent as stopword (0.0 ~ 1.0)
-      --stopunique      use ranking stopword as unique per line
+      --top             rank from top by count
+      --topp            rank from top by percent (0.0 ~ 1.0)
+      --last            rank from last by count
+      --lastp           rank from last by percent (0.0 ~ 1.0)
+  -u, --unique          count as one word if the same word exists in a line
 ```
 
-For example, if you want to separate words from the [example TSV file](example/aozora_bunko.tsv), try below command.
+For example, if you want to get word frequency ranking from the [example TSV file](example/aozora_bunko.tsv), try below command.
 
 ```sh
 # chack the file contents
@@ -251,19 +246,29 @@ id	author	title	url	exerpt
 1	夏目 漱石	吾輩は猫である	https://www.aozora.gr.jp/cards/000148/card789.html	一 吾輩は猫である。名前はまだ無い。 ...
 
 
-# run rip command
-$ go-jp-text-ripper rip \
+# run rank command
+$ go-jp-text-ripper rank \
     --input ./example/aozora_bunko.tsv \
     --column exerpt \
-    --output ./output.tsv
+    --output ./output_rank.tsv \
+	--stopword ./stopwords.txt
 
-[INFO]	[Run]	read and write lines...
-[INFO]	[Run]	finish process
+[INFO]	[DoWithProgress]	read lines...
+[INFO]	[Do]	Total Words:1041
+[INFO]	[DoWithProgress]	finish process
 
 # check the results
-$ head -n 2 ./output.tsv
-id	author	title	url	exerpt	op_text	op_word_count	op_non_word_count	op_raw_char_count
-1	夏目 漱石	吾輩は猫である	https://www.aozora.gr.jp/cards/000148/card789.html	一 吾輩は猫である。名前はまだ無い。...	一 吾輩 猫 名前 無い どこ 生れ 見当 つか 何 薄暗い し 所 ニャーニャー 泣い いた事 記憶 ...	562	719	2000
+$ head -n 10 ./output_rank.tsv
+type	rank	word	countN	countP
+top	1	し	52	0.02802
+top	2	の	41	0.02209
+top	3	い	31	0.01670
+top	4	いる	23	0.01239
+top	5	吾輩	18	0.00970
+top	6	ゐる	16	0.00862
+top	7	政治	14	0.00754
+top	8	人間	13	0.00700
+top	9	れ	12	0.00647
 ```
 
 
