@@ -20,14 +20,14 @@ build-linux:
 	@make _build BUILD_OS=linux BUILD_ARCH=amd64
 
 build-windows:
-	@make _build BUILD_OS=linux BUILD_ARCH=windows
+	@make _build BUILD_OS=windows BUILD_ARCH=amd64
 
 _build:
 	@mkdir -p bin/release
 	$(eval BUILD_OUTPUT := go-jp-text-ripper_${BUILD_OS}_${BUILD_ARCH}${BUILD_ARM})
 	GOOS=${BUILD_OS} \
 	GOARCH=${BUILD_ARCH} \
-	go build -o bin/${BUILD_OUTPUT} ./cmd
+	go build -o bin/${BUILD_OUTPUT} .
 	@if [ "${USE_ARCHIVE}" = "1" ]; then \
 		gzip -k -f bin/${BUILD_OUTPUT} ;\
 		mv bin/${BUILD_OUTPUT}.gz bin/release/ ;\
