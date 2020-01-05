@@ -111,8 +111,13 @@ func (r *CommonProcessor) GetCurrentPosition() int {
 
 // Close closes opened files
 func (r *CommonProcessor) Close() {
-	r.r.Close()
-	r.w.Close()
+	logger := r.Config.Logger
+	if err := r.r.Close(); err != nil {
+		logger.Errorf("Close", "r.r.Close() err:[%s]\n", err.Error())
+	}
+	if err := r.w.Close(); err != nil {
+		logger.Errorf("Close", "r.w.Close() err:[%s]\n", err.Error())
+	}
 }
 
 // ReadHeader reads column of header from input file.

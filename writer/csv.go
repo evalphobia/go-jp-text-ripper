@@ -53,11 +53,11 @@ func (w *Writer) Write(line []string) error {
 }
 
 // Close closes file
-func (w *Writer) Close() {
+func (w *Writer) Close() error {
 	if w.fp == nil {
-		return
+		return nil
 	}
-	w.fp.Close()
+	return w.fp.Close()
 }
 
 // writer is interface of actual writes line into files

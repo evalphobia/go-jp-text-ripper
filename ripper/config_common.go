@@ -100,6 +100,7 @@ func (c CommonConfig) GetPosList() []string {
 }
 
 func getWordsFromPath(path string) ([]string, error) {
+	/* #nosec G304 */
 	fp, err := os.Open(path)
 	if err != nil {
 		return nil, err
