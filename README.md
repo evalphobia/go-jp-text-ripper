@@ -1,7 +1,7 @@
 go-jp-text-ripper
 ----
 
-[![GoDoc][1]][2] [![License: MIT][3]][4] [![Release][5]][6] [![Build Status][7]][8] [![Co decov Coverage][11]][12] [![Go Report Card][13]][14] [![Code Climate][19]][20] [![BCH compliance][21]][22] [![Downloads][15]][16]
+[![GoDoc][1]][2] [![License: Apache][3]][4] [![Release][5]][6] [![Build Status][23]][24] [![Codecov Coverage][11]][12] [![Go Report Card][13]][14] [![Code Climate][19]][20] [![BCH compliance][21]][22] [![Downloads][15]][16]
 
 [1]: https://godoc.org/github.com/evalphobia/go-jp-text-ripper?status.svg
 [2]: https://godoc.org/github.com/evalphobia/go-jp-text-ripper
@@ -25,6 +25,10 @@ go-jp-text-ripper
 [20]: https://codeclimate.com/github/evalphobia/go-jp-text-ripper
 [21]: https://bettercodehub.com/edge/badge/evalphobia/go-jp-text-ripper?branch=master
 [22]: https://bettercodehub.com/
+[23]: https://github.com/evalphobia/go-jp-text-ripper/workflows/test/badge.svg
+[24]: https://github.com/evalphobia/go-jp-text-ripper/actions
+
+
 
 
 `go-jp-text-ripper` separates long text of Japanese into words and put spaces between ths words.
@@ -337,3 +341,10 @@ then, build and run!
 # License
 
 Apache License, Version 2.0
+
+# Credit
+
+This project depends on these awesome libraries,
+
+- [github.com/ikawaha/kagome](https://github.com/ikawaha/kagome)
+- [github.com/mkideal/cli](https://github.com/mkideal/cli)
