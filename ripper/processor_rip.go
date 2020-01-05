@@ -8,94 +8,59 @@ import (
 	"unicode/utf8"
 
 	"github.com/evalphobia/go-jp-text-ripper/log"
-	"github.com/evalphobia/go-jp-text-ripper/reader"
-	"github.com/evalphobia/go-jp-text-ripper/tokenizer"
-	"github.com/evalphobia/go-jp-text-ripper/writer"
 )
 
-// Ripper is struct for putting spaces between words
-type Ripper struct {
-	r           *reader.Reader
-	inputHeader []string
-	columnIndex int
+// DoRip creates *RipProcessor from config and run it.
+func DoRip(conf RipConfig) error {
+	if err := conf.Init(); err != nil {
+		return err
+	}
+	if err := conf.Validate(); err != nil {
+		return err
+	}
 
-	w            *writer.Writer
-	outputHeader []string
+	conf.Logger.Infof("DoRip", "version:[%s] rev:[%s]", conf.Version, conf.Revision)
+	r, err := NewRipProcessor(conf)
+	if err != nil {
+		return err
+	}
+	defer r.Close()
 
-	tok         *tokenizer.Tokenizer
-	preFilters  []*PreFilter
-	plugins     []*Plugin
-	postFilters []*PostFilter
+	if err := r.WriteHeader(); err != nil {
+		r.Close()
+		return err
+	}
 
-	quoteCols []string
-	quoteIdx  []int
-
-	Config Config
+	return r.DoWithProgress()
 }
 
-// New returns initialized Ripper.
-func New(c Config) (*Ripper, error) {
-	r := &Ripper{
-		tok: tokenizer.New(tokenizer.Config{
-			WordPosList:     c.GetPosList(),
-			StopWordList:    c.StopWords,
-			MinLetterSize:   c.MinLetterSize,
-			UseOriginalForm: c.UseOriginalForm,
-		}),
-	}
+// RipProcessor is struct for putting spaces between words.
+type RipProcessor struct {
+	*CommonProcessor
+	Config    RipConfig
+	quoteCols []string
+	quoteIdx  []int
+}
 
-	if err := r.SetReaderFromFile(c.Input); err != nil {
+// NewRipProcessor returns initialized RipProcessor.
+func NewRipProcessor(c RipConfig) (*RipProcessor, error) {
+	common, err := NewCommonProcessor(c.CommonConfig)
+	if err != nil {
 		return nil, err
 	}
-	switch {
-	case c.Output == "":
-		r.w = writer.NewDummy()
-	default:
-		if err := r.SetWriterFromFile(c.Output); err != nil {
-			return nil, err
-		}
-	}
 
-	r.Config = c
+	r := &RipProcessor{
+		CommonProcessor: common,
+		Config:          c,
+	}
 	if len(c.Quotes) != 0 {
 		r.SetQuoteColumns(c.Quotes)
 	}
-
-	// set original dictionary
-	if c.Dictionary != "" {
-		if err := r.SetDictionary(c.Dictionary); err != nil {
-			r.Close()
-			return nil, err
-		}
-	}
-
-	r.AddPreFilters(c.PreFilters...)
-	r.AddPlugins(c.Plugins...)
-	r.AddPostFilters(c.PostFilters...)
 	return r, nil
 }
 
-// SetReaderFromFile sets reader from file path
-func (r *Ripper) SetReaderFromFile(path string) error {
-	var err error
-	r.r, err = reader.NewFromFile(path)
-	return err
-}
-
-// SetWriterFromFile sets writer from file path
-func (r *Ripper) SetWriterFromFile(path string) error {
-	var err error
-	r.w, err = writer.NewFromFile(path)
-	return err
-}
-
-// SetDictionary sets dictinary
-func (r *Ripper) SetDictionary(path string) error {
-	return r.tok.SetDictionary(path)
-}
-
 // SetQuoteColumns sets normalizer
-func (r *Ripper) SetQuoteColumns(cols []string) {
+func (r *RipProcessor) SetQuoteColumns(cols []string) {
 	c := make([]string, len(cols))
 	for i, col := range cols {
 		c[i] = strings.TrimSpace(col)
@@ -103,34 +68,19 @@ func (r *Ripper) SetQuoteColumns(cols []string) {
 	r.quoteCols = c
 }
 
-// AddPreFilter adds pre filter.
-func (r *Ripper) AddPreFilters(p ...*PreFilter) {
-	r.preFilters = append(r.preFilters, p...)
+// ReadHeader reads header columns and sets target column by index.
+func (r *RipProcessor) ReadHeader() error {
+	c := r.Config
+	switch {
+	case c.ColumnNumber > 0:
+		return r.CommonProcessor.ReadHeaderWithIndex(c.ColumnNumber - 1)
+	default:
+		return r.readHeaderByName(c.Column)
+	}
 }
 
-// AddPlugin adds plugin.
-func (r *Ripper) AddPlugins(p ...*Plugin) {
-	r.plugins = append(r.plugins, p...)
-}
-
-// AddPostFilter adds post filter.
-func (r *Ripper) AddPostFilters(p ...*PostFilter) {
-	r.postFilters = append(r.postFilters, p...)
-}
-
-// GetCurrentPosition return current pos
-func (r *Ripper) GetCurrentPosition() int {
-	return r.r.GetPosition()
-}
-
-// Close closes opened files
-func (r *Ripper) Close() {
-	r.r.Close()
-	r.w.Close()
-}
-
-// ReadHeader reads header columns and check target column is existed or not
-func (r *Ripper) ReadHeader(col string) error {
+// readHeaderByName reads header columns and check target column is existed or not.
+func (r *RipProcessor) readHeaderByName(col string) error {
 	header, err := r.r.Read()
 	if err != nil {
 		return err
@@ -158,12 +108,12 @@ func (r *Ripper) ReadHeader(col string) error {
 }
 
 // WriteHeader writes header columns
-func (r *Ripper) WriteHeader() error {
+func (r *RipProcessor) WriteHeader() error {
 	c := r.Config
 
 	// read header if not read yet
 	if len(r.inputHeader) == 0 {
-		err := r.ReadHeader(c.Column)
+		err := r.ReadHeader()
 		if err != nil {
 			return err
 		}
@@ -199,10 +149,38 @@ func (r *Ripper) WriteHeader() error {
 	return r.w.Write(r.outputHeader)
 }
 
-// ReadAndWriteLines process each lines, read data, tokenize, and write it.
-func (r *Ripper) ReadAndWriteLines() error {
+// DoWithProgress processes with showing progress.
+func (r *RipProcessor) DoWithProgress() error {
+	r.ShowProgress()
+
+	conf := r.Config
+	logger := conf.Logger
+	logger.Infof("Run", "read and write lines...")
+
+	err := r.Do()
+	if err != nil {
+		logger.Errorf("Run", "error on r.Process() err:[%s]", err.Error())
+		return err
+	}
+
+	logger.Infof("Run", "finish process")
+	return nil
+}
+
+// Do processes each lines, read data, tokenize, and write it.
+func (r *RipProcessor) Do() error {
+	defer r.Close()
 	c := r.Config
 	logger := c.Logger
+	if c.UseRankingForStopWord() {
+		rank, err := r.doGetRankStopWord()
+		if err != nil {
+			return err
+		}
+		r.tok.AddStopWords(rank.GetTopWords()...)
+		r.tok.AddStopWords(rank.GetLastWords()...)
+	}
+
 	idx := r.columnIndex
 	tok := r.tok
 
@@ -213,7 +191,7 @@ func (r *Ripper) ReadAndWriteLines() error {
 		if err == nil {
 			return
 		}
-		logger.Errorf("ReadAndWriteLines", "unknown error occurred on Line:[%d] Text:[%s]\n", lastLineNo, lastLineText)
+		logger.Errorf("Do", "unknown error occurred on Line:[%d] Text:[%s]\n", lastLineNo, lastLineText)
 	}()
 
 	for {
@@ -224,7 +202,7 @@ func (r *Ripper) ReadAndWriteLines() error {
 			// end of file
 			return nil
 		case err != nil:
-			logger.Errorf("ReadAndWriteLines", "r.r.Read() err:[%s]\n", err.Error())
+			logger.Errorf("Do", "r.r.Read() err:[%s]\n", err.Error())
 			return err
 		}
 
@@ -250,7 +228,7 @@ func (r *Ripper) ReadAndWriteLines() error {
 		textLen := strconv.Itoa(utf8.RuneCountInString(text.raw))
 		wordLine := strings.Join(words, " ")
 		if c.ShowResult {
-			logger.Infof("ReadAndWriteLines", wordLine)
+			logger.Infof("Do", wordLine)
 		}
 		if c.DropEmpty && wordLine == "" {
 			continue
@@ -276,58 +254,28 @@ func (r *Ripper) ReadAndWriteLines() error {
 		results = append(line, results...)
 		err = r.w.Write(results)
 		if err != nil {
-			logger.Errorf("ReadAndWriteLines", "r.w.Write() err:[%s]\n", err.Error())
+			logger.Errorf("Do", "r.w.Write() err:[%s]\n", err.Error())
 			return err
 		}
 	}
 }
 
-// applyPreFilters runs prefilters function and return normalized text
-func (r *Ripper) applyPreFilters(text string) string {
-	for _, p := range r.preFilters {
-		text = p.Fn(text)
-	}
-	return text
-}
-
-// applyPlugins runs plugins function and adds result
-func (r *Ripper) applyPlugins(results []string, text *TextData) []string {
+// doGetRankStopWord processes with showing progress.
+func (r *RipProcessor) doGetRankStopWord() (RankResult, error) {
 	c := r.Config
-	logger := c.Logger
-
-	for _, p := range r.plugins {
-		fnResult := p.Fn(text)
-		results = append(results, fnResult)
-		if c.Debug {
-			logger.Debugf("applyPlugins", "%s: %s\n", p.Title, fnResult)
-		}
-	}
-	return results
-}
-
-// applyPostFilters runs postfilters function and adds the result
-func (r *Ripper) applyPostFilters(results, line []string) []string {
-	if len(r.postFilters) == 0 {
-		return results
-	}
-	c := r.Config
-	logger := c.Logger
-
-	data := make(map[string]string)
-	header := r.outputHeader
-	for i, val := range append(line, results...) {
-		title := strings.TrimPrefix(header[i], c.Prefix)
-		data[title] = val
+	rp, err := NewRankProcessor(RankConfig{
+		CommonConfig: c.CommonConfig,
+		TopNumber:    c.StopWordTopNumber,
+		TopPercent:   c.StopWordTopPercent,
+		LastNumber:   c.StopWordLastNumber,
+		LastPercent:  c.StopWordLastPercent,
+		UseUnique:    c.UseStopWordUnique,
+	})
+	if err != nil {
+		return RankResult{}, err
 	}
 
-	for _, p := range r.postFilters {
-		fnResult := p.Fn(data)
-		results = append(results, fnResult)
-		if c.Debug {
-			logger.Debugf("applyPostFilters", "%s: %s\n", p.Title, fnResult)
-		}
-	}
-	return results
+	return rp.GetRank()
 }
 
 func showDebug(logger log.Logger, text *TextData) {

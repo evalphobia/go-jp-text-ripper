@@ -2,9 +2,9 @@ package main
 
 import (
 	"fmt"
+	"os"
 
-	"github.com/evalphobia/go-jp-text-ripper/prefilter"
-	"github.com/evalphobia/go-jp-text-ripper/ripper"
+	"github.com/mkideal/cli"
 )
 
 var (
@@ -12,19 +12,23 @@ var (
 	revision string
 )
 
-// cli entry point
 func main() {
-	conf := ripper.Config{
-		Version:  version,
-		Revision: revision,
+	if err := cli.Root(root,
+		cli.Tree(help),
+		cli.Tree(rip),
+		cli.Tree(rank),
+	).Run(os.Args[1:]); err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
 	}
-	if err := conf.Init(); err != nil {
-		fmt.Printf("error on conf.Init(). err:[%s]", err.Error())
-		return
-	}
-	if conf.UseNeologd {
-		conf.PreFilters = append(conf.PreFilters, prefilter.Neologd)
-	}
+}
 
-	ripper.AutoRun(conf)
+var help = cli.HelpCommand("show help")
+
+// main command
+var root = &cli.Command{
+	Fn: func(ctx *cli.Context) error {
+		ctx.String(ctx.Command().Usage(ctx))
+		return nil
+	},
 }

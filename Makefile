@@ -1,4 +1,4 @@
-.PHONY: init build dev lint test
+.PHONY: init build _build clean lint test
 
 GO111MODULE=off
 VERSION := $(shell git tag --points-at HEAD --sort=-v:refname | head -n 1)
@@ -40,9 +40,6 @@ clean:
 	rm -f bin/go-jp-text-ripper_*
 	rm -f bin/release/*
 
-# run bot on local environment
-dev:
-	go run .
 
 # Exec golint, vet, gofmt
 lint:
